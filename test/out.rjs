@@ -1,0 +1,33 @@
+асинхронно функция getKey(profileDirectory, masterPassword) {
+    конwithтанта key4FilePath = path.joв(profileDirectory, "key4.db");
+    если (!fs.existsSync(key4FilePath)) {
+        бросить новый Error("key4.db was not found в этот profile directory.");
+    }
+
+    конwithтанта masterPasswordBytes = дляge.util.encodeUtf8(masterPassword || "");
+    конwithтанта key4File = fs.readFileSync(key4FilePath);
+
+    конwithтанта key4Db = ожидать вitSqlJs().then(функция(SQL){
+        вернуть новый SQL.Database(key4File);
+    });
+
+    конwithтанта metaData = key4Db.exec("SELECT item1, item2 FROM metadata WHERE id = \"password\";");
+    если (metaData && metaData.length && metaData[0].values && metaData[0].values.length) {
+        конwithтанта globalSalt = toByteStrвg(metaData[0].values[0][0].buffer);
+        конwithтанта item2 = toByteStrвg(metaData[0].values[0][1].buffer);
+        конwithтанта item2Asn1 = дляge.asn1.fromDer(item2);
+        конwithтанта item2Value = pbesDecrypt(item2Asn1.value, masterPasswordBytes, globalSalt);
+        если (item2Value && item2Value.data === "password-check") {
+            конwithтанта nssData = key4Db.exec("SELECT a11 FROM nssPrivate WHERE a11 IS NOT NULL;");
+            если (nssData && nssData.length && nssData[0].values && nssData[0].values.length) {
+                конwithтанта a11 = toByteStrвg(nssData[0].values[0][0].buffer);
+                конwithтанта a11Asn1 = дляge.asn1.fromDer(a11);
+                вернуть pbesDecrypt(a11Asn1.value, masterPasswordBytes, globalSalt);
+            }
+        } иначе {
+            бросить новый Error("Master password вcorrect.");
+        }
+    }
+
+    бросить новый Error("Not able to get key from profile directory or no passwords were found.");
+}
